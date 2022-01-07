@@ -54,4 +54,13 @@ class LittleJohnModel: ObservableObject {
     configuration.timeoutIntervalForRequest = .infinity
     return URLSession(configuration: configuration)
   }()
+  
+  func availableSymbols() async throws -> [String] {
+    guard let url = URL(string: "http://localhost:8080/littlejohn/symbols") else { throw "The URL could not be created" }
+    let (data, response) = try await URLSession.shared.data(from: url)
+    
+    guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw "The server responded with an error." }
+    
+    return try JSONDecoder().decode([String].self, from: data)
+  }
 }
