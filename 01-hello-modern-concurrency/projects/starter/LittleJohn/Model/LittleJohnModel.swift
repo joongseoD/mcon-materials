@@ -64,6 +64,12 @@ class LittleJohnModel: ObservableObject {
     await MainActor.run {
       tickerSymbols = []
     }
+    
+    async let a = URLSession.shared.dataTask(with: URL(string: "")!)
+    
+    let b = try await a
+    
+    
   }
 
   /// A URL session that lets requests run indefinitely so we can receive live updates from server.
