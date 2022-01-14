@@ -43,9 +43,9 @@ class SuperStorageModel: ObservableObject {
       throw "Could not create the URL."
     }
     
-    addDownload(name: file.name)
+    await addDownload(name: file.name)
     let (data, response) = try await URLSession.shared.data(from: url, delegate: nil)
-    updateDownload(name: file.name, progress: 1.0)
+    await updateDownload(name: file.name, progress: 1.0)
     guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw "The server responded with an error." }
     
     return data
@@ -91,12 +91,14 @@ class SuperStorageModel: ObservableObject {
 
 extension SuperStorageModel {
   /// Adds a new download.
+  @MainActor
   func addDownload(name: String) {
     let downloadInfo = DownloadInfo(id: UUID(), name: name, progress: 0.0)
     downloads.append(downloadInfo)
   }
   
-  /// Updates a the progress of a given download.
+  /// Updates a the progress of a given
+  @MainActor
   func updateDownload(name: String, progress: Double) {
     if let index = downloads.firstIndex(where: { $0.name == name }) {
       var info = downloads[index]
