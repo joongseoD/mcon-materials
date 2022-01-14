@@ -118,6 +118,37 @@ class SuperStorageModel: ObservableObject {
     let total = 4
     let parts = (0..<total).map { partInfo(index: $0, of: total) }
     
+    // task group
+    let result = try await withThrowingTaskGroup(of: Data.self, body: { group -> [Data] in
+      var datas: [Data] = []
+      
+      for each in parts {
+        group.addTask {
+          return try await self.downloadWithProgress(fileName: file.name, name: each.name, size: each.size, offset: each.offset)
+        }
+      }
+      
+      for try await data in group {
+        datas.append(data)
+      }
+      
+      return datas
+    })
+    
+    return result.reduce(Data(), +)
+    
+    /*
+     // serial
+    var datas: [Data] = []
+    for each in parts {
+      let data = try await downloadWithProgress(fileName: file.name, name: each.name, size: each.size, offset: each.offset)
+      datas.append(data)
+    }
+    return datas.reduce(Data(), +)
+    */
+    
+    /*
+     // async-let
     async let part1 =
     downloadWithProgress(fileName: file.name, name: parts[0].name, size: parts[0].size, offset: parts[0].offset)
     async let part2 =
@@ -129,6 +160,7 @@ class SuperStorageModel: ObservableObject {
 
     return try await [part1, part2, part3, part4]
       .reduce(Data(), +)
+     */
   }
 
   /// Flag that stops ongoing downloads.
