@@ -97,10 +97,19 @@ struct DownloadView: View {
                 })
             } catch { }
             isDownloadActive = false
+            timerTask?.cancel()
           }
         },
         downloadMultipleAction: {
           // Download a file in multiple concurrent parts.
+          isDownloadActive = true
+          downloadTask = Task {
+            do {
+              fileData = try await model.multiDownloadWithProgress(file: file)
+            } catch { }
+            isDownloadActive = false
+            timerTask?.cancel()
+          }
         }
       )
       if !model.downloads.isEmpty {
