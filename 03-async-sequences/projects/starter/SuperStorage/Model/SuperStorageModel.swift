@@ -118,16 +118,26 @@ class SuperStorageModel: ObservableObject {
     let total = 4
     let parts = (0..<total).map { partInfo(index: $0, of: total) }
     
+    let group = DispatchGroup()
+    DispatchQueue.global().async(group: group) {
+      for each in parts {
+        print("## concurrent each", each)
+      }
+    }
+    
+    group.notify(queue: DispatchQueue.main) {
+      print("## done")
+    }
+    
     // task group
     let result = try await withThrowingTaskGroup(of: Data.self, body: { group -> [Data] in
-      var datas: [Data] = []
-      
       for each in parts {
         group.addTask {
           return try await self.downloadWithProgress(fileName: file.name, name: each.name, size: each.size, offset: each.offset)
         }
       }
       
+      var datas: [Data] = []
       for try await data in group {
         datas.append(data)
       }
