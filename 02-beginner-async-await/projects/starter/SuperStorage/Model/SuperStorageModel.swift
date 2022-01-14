@@ -62,7 +62,37 @@ class SuperStorageModel: ObservableObject {
       throw "Could not create the URL."
     }
     await addDownload(name: name)
-    return Data()
+    let result: (downloadStream: URLSession.AsyncBytes, response: URLResponse)
+    if let offset = offset {
+      let urlRequest = URLRequest(url: url, offset: offset, length: size)
+      result = try await URLSession.shared.bytes(for: urlRequest, delegate: nil)
+      
+      guard (result.response as? HTTPURLResponse)?.statusCode == 206 else {
+        throw "The server responded with an error."
+      }
+    } else {
+      result = try await URLSession.shared.bytes(from: url, delegate: nil)
+      guard (result.response as? HTTPURLResponse)?.statusCode == 200 else {
+        throw "The server responded with an error."
+      }
+    }
+    
+    var asyncDownloadIterator = result.downloadStream.makeAsyncIterator()
+    let accumulator = ByteAccumulator(name: name, size: size)
+
+    while !stopDownloads, !accumulator.checkCompleted() {
+      while !accumulator.isBatchCompleted,
+            let byte = try await asyncDownloadIterator.next() {
+        accumulator.append(byte)
+      }
+      
+      Task.detached(priority: .medium) { [weak self] in
+        await self?.updateDownload(name: name, progress: accumulator.progress)
+      }
+      print(accumulator)
+    }
+    
+    return accumulator.data
   }
 
   /// Downloads a file using multiple concurrent connections, returns the final content, and updates the download progress.
