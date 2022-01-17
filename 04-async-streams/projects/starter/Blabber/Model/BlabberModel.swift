@@ -53,6 +53,45 @@ class BlabberModel: ObservableObject {
   /// Does a countdown and sends the message.
   func countdown(to message: String) async throws {
     guard !message.isEmpty else { return }
+    
+    // with combine subject
+    /*
+    let subject = PassthroughSubject<String, Never>()
+    var count = 3
+    Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+      guard count > 0 else {
+        timer.invalidate()
+        subject.send("END: \(message)")
+        subject.send(completion: .finished)
+        return
+      }
+      subject.send("\(count)")
+      count -= 1
+    }
+    
+    for await item in subject.values {
+      try await say(item)
+    }
+    */
+    
+    let counter = AsyncStream<String> { continuation in
+      var countdown = 3
+      Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+        guard countdown > 0 else {
+          timer.invalidate()
+//          continuation.yield("END: " + message)
+//          continuation.finish() // 아래로 대체 
+          continuation.yield(with: .success("END: " + message))
+          return
+        }
+        continuation.yield("\(countdown) ...")
+        countdown -= 1
+      }
+    }
+    
+    for await countdownMessage in counter {
+      try await say(countdownMessage)
+    }
   }
 
   /// Start live chat updates
@@ -83,6 +122,20 @@ class BlabberModel: ObservableObject {
   /// Reads the server chat stream and updates the data model.
   @MainActor
   private func readMessages(stream: URLSession.AsyncBytes) async throws {
+    var iterator = stream.lines.makeAsyncIterator()
+    
+    guard let first = try await iterator.next() else { throw "No response from server" }
+    guard let data = first.data(using: .utf8),
+            let status = try? JSONDecoder()
+            .decode(ServerStatus.self, from: data) else { throw "Invalid response from server" }
+    messages.append(Message(message: "\(status.activeUsers) active users"))
+    
+    for try await line in stream.lines {
+      if let data = line.data(using: .utf8),
+         let update = try? JSONDecoder().decode(Message.self, from: data) {
+        messages.append(update)
+      }
+    }
   }
 
   /// Sends the user's message to the chat server
