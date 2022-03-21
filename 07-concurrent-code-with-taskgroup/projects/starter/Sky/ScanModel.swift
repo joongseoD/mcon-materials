@@ -60,6 +60,64 @@ class ScanModel: ObservableObject {
 
   func runAllTasks() async throws {
     started = Date()
+    
+    try await withThrowingTaskGroup(of: Result<String, Error>.self, body: { [unowned self] group in
+      let batchSize = 4
+      for number in 0..<batchSize {
+        group.addTask {
+          await self.worker(number: number)
+        }
+      }
+//      return await group.reduce(into: [String]()) { result, string in
+//        result.append(string)
+//      }
+      var index = batchSize
+      for try await result in group {
+        switch result {
+        case .success(let result):
+          print("Completed: ", result)
+        case .failure(let error):
+          print("Failed: ", error.localizedDescription)
+        }
+        if index < total {
+          group.addTask { [index] in
+            await self.worker(number: index)
+          }
+          index += 1
+        }
+      }
+      print("Done.")
+      
+      await MainActor.run {
+        completed = 0
+        countPerSecond = 0
+        scheduled = 0
+      }
+    })
+        
+    
+    // worker 결과를 하나씩 기다려서 append함
+    /*
+    var scans: [String] = []
+    for number in 0..<total {
+      scans.append(await worker(number: number))
+    }
+    print(scans)
+     */
+  }
+  
+  func worker(number: Int) async -> Result<String, Error> {
+    await onScheduled()
+    
+    let task = ScanTask(input: number)
+    let result: String
+    do {
+      result = try await task.run()
+    } catch {
+      return .failure(error)
+    }
+    await onTaskCompleted()
+    return .success(result)
   }
 }
 
