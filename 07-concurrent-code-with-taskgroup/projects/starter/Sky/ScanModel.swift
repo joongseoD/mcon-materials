@@ -86,6 +86,7 @@ class ScanModel: ObservableObject {
           index += 1
         }
       }
+      
       print("Done.")
       
       await MainActor.run {
