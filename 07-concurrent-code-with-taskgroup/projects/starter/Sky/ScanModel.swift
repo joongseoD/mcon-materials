@@ -87,6 +87,7 @@ class ScanModel: ObservableObject {
         }
       }
       print("Done.")
+      
       await MainActor.run {
         completed = 0
         countPerSecond = 0
